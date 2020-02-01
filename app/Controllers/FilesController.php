@@ -1,13 +1,10 @@
 <?php
 
-namespace Src\Controllers;
+namespace App\Controllers;
 
-
-use function Couchbase\defaultDecoder;
 
 class FilesController
 {
-//  private $pathFiles=__DIR__ . '/Files/2016-readings.csv';
     private $pathFiles = __DIR__ . '/../Files/';
     private $parsedFilesDir = __DIR__ . '/../parsedFiles/';
 
@@ -16,7 +13,7 @@ class FilesController
     {
         $response = ['error' => 0, 'errorTxt' => '', 'filename' => ''];
         if (strpos($fileName, '.csv') !== false) {
-            $createFileResponse = $this->createFileByCSV($fileName);
+            $createFileResponse = $this->createFileFromCSV($fileName);
             if (!$createFileResponse['error']) {
                 $response['filename'] = $createFileResponse['filename'];
             } else {
@@ -24,7 +21,7 @@ class FilesController
                 $response['errorTxt'] = 'Error creating file';
             }
         } elseif (strpos($fileName, '.xml') !== false) {
-            $createFileResponse = $this->createFileByXml($fileName);
+            $createFileResponse = $this->createFileFromXml($fileName);
             if (!$createFileResponse['error']) {
                 $response['filename'] = $createFileResponse['filename'];
             } else {
@@ -46,6 +43,7 @@ class FilesController
             $fileInfo = file_get_contents($this->parsedFilesDir . $name);
             $data = json_decode($fileInfo, true);
             $suspects = $this->parseData($data);
+            unlink($this->parsedFilesDir . $name);
             return $suspects;
         }
     }
@@ -58,41 +56,34 @@ class FilesController
             $date = explode('-', $info['date']);
             $year = $date[0];
             $month = $date[1];
-            if (!isset($clientsInfo[$info['clientID']][$year]['totalMonths'])) {
-                $clientsInfo[$info['clientID']][$year]['totalMonths'] = 0;
+
+            if (!isset($clientsInfo[$info['clientID']][$year]['totalYearReadings'])) {
+                $clientsInfo[$info['clientID']][$year]['totalYearReadings'] = 0;
             } else {
-                $clientsInfo[$info['clientID']][$year]['totalMonths'] = $clientsInfo[$info['clientID']][$year]['totalMonths'] + 1;
+                $clientsInfo[$info['clientID']][$year]['totalYearReadings'] = $clientsInfo[$info['clientID']][$year]['totalYearReadings'] + $info['reading'];
             }
-            if (!isset($clientsInfo[$info['clientID']][$year]['totalReadings'])) {
-                $clientsInfo[$info['clientID']][$year]['totalReadings'] = 0;
-            } else {
-                $clientsInfo[$info['clientID']][$year]['totalReadings'] = $clientsInfo[$info['clientID']][$year]['totalReadings'] + $info['reading'];
-            }
-//            $clientsInfo[$info['clientID']][$year][$month] = $info['reading'];
             $clientsInfo[$info['clientID']][$year]['monthReadigs'][$month] = $info['reading'];
 
         }
-        $response['suspects'] = $this->calculateYearMedian($clientsInfo);
-//        $this->findSuspects($clientsInfo);
+        $response['suspects'] = $this->calculateMedianAndGetSuspects($clientsInfo);
         return $response;
     }
 
-    private function calculateYearMedian($clientsInfo)
+    private function calculateMedianAndGetSuspects($clientsInfo)
     {
         $resultsClientsInfo = $clientsInfo;
         $suspects = [];
         foreach ($clientsInfo as $clientID => $yearInfo) {
             foreach ($yearInfo as $year => $info) {
                 $median = 0;
-                if ($info['totalReadings'] > 0 && $info['totalMonths'] > 0) {
-                    $median = round($info['totalReadings'] / $info['totalMonths']);
+                if ($info['totalYearReadings'] > 0) {
+                    $median = round($info['totalYearReadings'] / 12);
                 }
                 $resultsClientsInfo[$clientID][$year]['median'] = $median;
                 if ($median > 0) {
+                    $medianUP = (int)$median + ((int)$median / 2);
+                    $medianDown = (int)$median - ((int)$median / 2);
                     foreach ($resultsClientsInfo[$clientID][$year]['monthReadigs'] as $month => $reading) {
-                        $medianUP = (int)$median + 50;
-                        $medianDown = (int)$median - 50;
-
                         if ((int)$reading > $medianUP || (int)$reading < $medianDown) {
                             $suspects[] = [
                                 'clientID' => $clientID,
@@ -103,34 +94,12 @@ class FilesController
                         }
                     }
                 }
-
             }
         }
         return $suspects;
     }
 
-    private function findSuspects($clientsInfo, $monthReadigs, $median)
-    {
-        $suspects = [];
-        foreach ($clientsInfo as $clientID => $yearInfo) {
-            foreach ($yearInfo as $year => $info) {
-                $median = $info['median'];
-                if (count($info['monthReadigs']) > 0) {
-                    foreach ($info['monthReadigs'] as $monthInfo) {
-
-                    }
-//                    var_dump($info['monthReadigs']);
-                }
-//                $median = 0;
-//                if ($info['totalReadings'] > 0 && $info['totalMonths'] > 0) {
-//                    $median = round($info['totalReadings'] / $info['totalMonths']);
-//                }
-//                $resultsClientsInfo[$clientID][$year]['median'] = $median;
-            }
-        }
-    }
-
-    private function createFileByCSV($name)
+    private function createFileFromCSV($name)
     {
         $response = ['error' => 1, 'filename' => ''];
         $now = date("Ymd_Hisu");
@@ -159,7 +128,7 @@ class FilesController
         return $response;
     }
 
-    private function createFileByXml($name)
+    private function createFileFromXml($name)
     {
         $response = ['error' => 1, 'filename' => ''];
         $now = date("Ymd_Hisu");
