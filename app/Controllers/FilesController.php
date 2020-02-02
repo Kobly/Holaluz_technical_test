@@ -2,52 +2,50 @@
 
 namespace App\Controllers;
 
-
+use App\Interfaces\iFilesCreator;
 use App\Models\Suspect;
 
 class FilesController
 {
-    private $pathFiles = __DIR__ . '/../Files/';
     private $parsedFilesDir = __DIR__ . '/../parsedFiles/';
+    private $creators = ['csv' => 'App\Controllers\CsvCreator', 'xml' => 'App\Controllers\XmlCreator'];
 
 
     public function createFile($fileName)
     {
         $response = ['error' => 0, 'errorTxt' => '', 'filename' => ''];
-        if (strpos($fileName, '.csv') !== false) {
-            $createFileResponse = $this->createFileFromCSV($fileName);
-            if (!$createFileResponse['error']) {
-                $response['filename'] = $createFileResponse['filename'];
+        $fileExtension = explode('.', $fileName);
+        if (count($fileExtension) > 1) {
+            if (isset($this->creators[$fileExtension[1]])) {
+                $fileController = new $this->creators[$fileExtension[1]];
+                if ($fileController instanceof iFilesCreator) {
+                    $createFileResponse = $fileController->createFile($fileName);
+                    if (!$createFileResponse['error']) {
+                        $response['filename'] = $createFileResponse['filename'];
+                    } else {
+                        $response['error'] = 1;
+                        $response['errorTxt'] = 'Error creating file';
+                    }
+                }
             } else {
                 $response['error'] = 1;
-                $response['errorTxt'] = 'Error creating file';
+                $response['errorTxt'] = 'Format unknown';
             }
-        } elseif (strpos($fileName, '.xml') !== false) {
-            $createFileResponse = $this->createFileFromXml($fileName);
-            if (!$createFileResponse['error']) {
-                $response['filename'] = $createFileResponse['filename'];
-            } else {
-                $response['error'] = 1;
-                $response['errorTxt'] = 'Error creating file';
-            }
-        } else {
-            $response['error'] = 1;
-            $response['errorTxt'] = 'Format unknown';
         }
-
 
         return $response;
     }
 
     public function getResults($name)
     {
+        $suspects = [];
         if (file_exists($this->parsedFilesDir . $name)) {
             $fileInfo = file_get_contents($this->parsedFilesDir . $name);
             $data = json_decode($fileInfo, true);
             $suspects = $this->parseData($data);
             unlink($this->parsedFilesDir . $name);
-            return $suspects;
         }
+        return $suspects;
     }
 
     private function parseData($data)
@@ -94,60 +92,5 @@ class FilesController
             }
         }
         return $suspects;
-    }
-
-    private function createFileFromCSV($name)
-    {
-        $response = ['error' => 1, 'filename' => ''];
-        $now = date("Ymd_Hisu");
-        $newFileRoute = $this->parsedFilesDir . $now;
-        if (!is_dir($this->parsedFilesDir)) {
-            mkdir($this->parsedFilesDir);
-        }
-        $info = [];
-        if (($handle = fopen($this->pathFiles . $name, "r")) !== false) {
-            $row = 1;
-            while (($data = fgetcsv($handle, null, ",")) !== false) {
-                if ($row != 1) {
-                    if (count($data) >= 3) {
-                        $info[] = ['clientID' => $data[0], 'date' => $data[1], 'reading' => $data[2]];
-                    }
-                }
-                $row++;
-            }
-            fclose($handle);
-        }
-        $newFile = file_put_contents($newFileRoute,
-            json_encode($info));
-        if (!empty($newFile)) {
-            $response = ['error' => 0, 'filename' => $now];
-        }
-        return $response;
-    }
-
-    private function createFileFromXml($name)
-    {
-        $response = ['error' => 1, 'filename' => ''];
-        $now = date("Ymd_Hisu");
-        $newFileRoute = $this->parsedFilesDir . $now;
-        if (!is_dir($this->parsedFilesDir)) {
-            mkdir($this->parsedFilesDir);
-        }
-        $xml = simplexml_load_file($this->pathFiles . $name);
-        if (!empty($xml)) {
-            $info = [];
-            foreach ($xml->children() as $data) {
-                $reading = (string)$data[0];
-                $clientID = (string)$data['clientID'];
-                $date = (string)$data['period'][0];
-                $info[] = ['clientID' => $clientID, 'date' => $date, 'reading' => $reading];
-            }
-            $newFile = file_put_contents($newFileRoute,
-                json_encode($info));
-            if (!empty($newFile)) {
-                $response = ['error' => 0, 'filename' => $now];
-            }
-        }
-        return $response;
     }
 }

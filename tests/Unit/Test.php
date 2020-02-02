@@ -50,5 +50,19 @@ class Test extends \PHPUnit\Framework\TestCase
         $this->assertEquals($suspect->getReading(), '231');
         $this->assertEquals($suspect->getMedian(), '23');
     }
+
+    public function testCsvCreatorController()
+    {
+        $csvCreator = new \App\Controllers\CsvCreator();
+        $response = $csvCreator->createFile('2016-readings.csv');
+        $this->assertEquals($response['error'], 0);
+    }
+
+    public function testXmlCreatorController()
+    {
+        $csvCreator = new \App\Controllers\XmlCreator();
+        $response = $csvCreator->createFile('2016-readings.xml');
+        $this->assertEquals($response['error'], 0);
+    }
 }
 
