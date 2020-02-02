@@ -3,6 +3,8 @@
 namespace App\Controllers;
 
 
+use App\Models\Suspect;
+
 class FilesController
 {
     private $pathFiles = __DIR__ . '/../Files/';
@@ -85,12 +87,7 @@ class FilesController
                     $medianDown = (int)$median - ((int)$median / 2);
                     foreach ($resultsClientsInfo[$clientID][$year]['monthReadigs'] as $month => $reading) {
                         if ((int)$reading > $medianUP || (int)$reading < $medianDown) {
-                            $suspects[] = [
-                                'clientID' => $clientID,
-                                'month' => $month,
-                                'reading' => $reading,
-                                'median' => $median
-                            ];
+                            $suspects[] = new Suspect($clientID, $month, $reading, $median);
                         }
                     }
                 }

@@ -40,5 +40,15 @@ class Test extends \PHPUnit\Framework\TestCase
         $this->assertEquals($results['error'], 0);
 
     }
+
+    public function testNewSuspect()
+    {
+        $suspect = new \App\Models\Suspect('1123', '01', '231', '23');
+
+        $this->assertEquals($suspect->getClientID(), '1123');
+        $this->assertEquals($suspect->getMonth(), '01');
+        $this->assertEquals($suspect->getReading(), '231');
+        $this->assertEquals($suspect->getMedian(), '23');
+    }
 }
 

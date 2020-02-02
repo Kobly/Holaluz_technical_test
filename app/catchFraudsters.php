@@ -13,7 +13,10 @@ if (!$response['error'] && $response['filename'] != '') {
             $mask = "|%20.20s |%15.15s |%20.20s |%20.20s \n";
             printf($mask, 'Client', 'Month', 'Suspicious', 'Median');
             foreach ($results['suspects'] as $suspect) {
-                printf($mask, $suspect['clientID'], $suspect['month'], $suspect['reading'], $suspect['median']);
+                if ($suspect instanceof \App\Models\Suspect) {
+                    printf($mask, $suspect->getClientID(), $suspect->getMonth(), $suspect->getReading(),
+                        $suspect->getMedian());
+                }
             }
         } else {
             printf('No suspects this year' . PHP_EOL);
